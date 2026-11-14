@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Large Dataset (2 GB - keep repository lightweight)
+Wall Crack Image Dataset for Earthquake and Struct/
+
+# Application uploads and generated reports
+crack_detector_app/uploads/*
+!crack_detector_app/uploads/.gitkeep
+crack_detector_app/reports/*
+!crack_detector_app/reports/.gitkeep
+
+# IDE and OS files
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+*.log

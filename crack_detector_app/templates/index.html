@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Crack Detection System | Multiscale DIP</title>
+    <!-- Tailwind CSS CDN for modern clean responsive layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-cyan-500 text-slate-950 p-2 rounded-lg font-bold text-xl flex items-center justify-center">
+                    <i class="fa-solid fa-draw-polygon"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight tracking-wide">Building Crack Detection System</h1>
+                    <p class="text-xs text-slate-400">Classical Digital Image Processing & Multiscale Feature Analysis</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3 text-xs">
+                <span class="inline-flex items-center px-3 py-1 rounded-full font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <i class="fa-solid fa-check-double mr-1.5"></i> Strict Non-AI / Non-DL Mode
+                </span>
+                <span class="inline-flex items-center px-3 py-1 rounded-full font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                    <i class="fa-solid fa-microscope mr-1.5"></i> Paper Eq (16-22) Compliant
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Controls Sidebar (4 cols on lg) -->
+        <div class="lg:col-span-4 space-y-6">
+
+            <!-- Mode Selector Switch -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-1.5 flex gap-1">
+                <button id="btn-mode-single" onclick="switchMode('single')" class="flex-1 py-2 text-sm font-semibold rounded-lg bg-cyan-600 text-white shadow-sm transition">
+                    <i class="fa-regular fa-image mr-1"></i> Single Inspection
+                </button>
+                <button id="btn-mode-batch" onclick="switchMode('batch')" class="flex-1 py-2 text-sm font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition">
+                    <i class="fa-solid fa-layer-group mr-1"></i> Batch Processing
+                </button>
+            </div>
+
+            <!-- Single Image Input Section -->
+            <div id="section-single-controls" class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-5">
+                <h2 class="text-base font-bold text-slate-900 flex items-center justify-between border-b pb-3">
+                    <span><i class="fa-solid fa-camera mr-2 text-cyan-600"></i> Image Input</span>
+                    <span class="text-xs text-slate-400 font-normal">JPG, PNG, BMP</span>
+                </h2>
+
+                <!-- Drag & Drop Upload Box -->
+                <div id="dropzone" class="border-2 border-dashed border-slate-300 hover:border-cyan-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-50 hover:bg-cyan-50/30" onclick="document.getElementById('file-input').click()">
+                    <input type="file" id="file-input" class="hidden" accept="image/*" onchange="handleFileSelect(event)">
+                    <div class="text-slate-400 text-3xl mb-2">
+                        <i class="fa-solid fa-cloud-arrow-up text-cyan-600"></i>
+                    </div>
+                    <p class="text-sm font-medium text-slate-700">Click to upload or drag image here</p>
+                    <p id="selected-file-label" class="text-xs text-slate-500 mt-1 truncate">No file chosen yet</p>
+                </div>
+
+                <!-- DIP Algorithm Parameters -->
+                <div class="space-y-4 pt-2">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">DIP Calibration & Parameters</h3>
+
+                    <!-- Calibration Factor mu -->
+                    <div>
+                        <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                            <label for="input-mu">Physical Calibration &mu; (mm/pixel)</label>
+                            <span class="text-cyan-700 font-bold" id="val-mu">0.92 mm</span>
+                        </div>
+                        <input type="number" id="input-mu" step="0.01" min="0.01" value="0.92" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:outline-none" oninput="document.getElementById('val-mu').innerText=this.value+' mm'">
+                        <p class="text-[11px] text-slate-400 mt-1">From paper: &mu; = 0.92 mm/px for dataset standard resolution.</p>
+                    </div>
+
+                    <!-- Threshold Sensitivity Factor -->
+                    <div>
+                        <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                            <label for="input-otsu">Sensitivity Factor</label>
+                            <span class="text-cyan-700 font-bold" id="val-otsu">0.90</span>
+                        </div>
+                        <input type="range" id="input-otsu" min="0.4" max="1.4" step="0.05" value="0.90" class="w-full accent-cyan-600" oninput="document.getElementById('val-otsu').innerText=parseFloat(this.value).toFixed(2)">
+                    </div>
+
+                    <!-- Minimum Crack Area Filter -->
+                    <div>
+                        <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                            <label for="input-min-area">Min Component Size (px)</label>
+                            <span class="text-cyan-700 font-bold" id="val-min-area">40 px</span>
+                        </div>
+                        <input type="range" id="input-min-area" min="10" max="300" step="5" value="40" class="w-full accent-cyan-600" oninput="document.getElementById('val-min-area').innerText=this.value+' px'">
+                        <p class="text-[11px] text-slate-400 mt-1">Rejects fine dust, aggregate pores, and surface flecks.</p>
+                    </div>
+
+                    <!-- Thresholding Mode -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Thresholding Strategy</label>
+                        <select id="select-thresh-mode" class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white">
+                            <option value="hybrid" selected>Hybrid (Otsu + Local Adaptive)</option>
+                            <option value="hysteresis">Hysteresis (Dual-Threshold Crack Linking)</option>
+                            <option value="otsu">Standard Otsu Global</option>
+                            <option value="adaptive">Local Adaptive Gaussian</option>
+                        </select>
+                    </div>
+
+                    <!-- Visual Toggles -->
+                    <div class="pt-2 border-t space-y-2">
+                        <label class="flex items-center text-xs font-medium text-slate-700 cursor-pointer">
+                            <input type="checkbox" id="check-normals" checked class="rounded text-cyan-600 focus:ring-cyan-500 mr-2">
+                            <span>Draw Normal Width Measurement Lines (Eq 19)</span>
+                        </label>
+                        <label class="flex items-center text-xs font-medium text-slate-700 cursor-pointer">
+                            <input type="checkbox" id="check-bboxes" checked class="rounded text-cyan-600 focus:ring-cyan-500 mr-2">
+                            <span>Draw Network Crack Bounding Rectangles (Eq 22)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Process Action Button -->
+                <button id="btn-process" onclick="processImage()" class="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg shadow-md transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-microchip"></i>
+                    <span>Analyze Image with Multiscale DIP</span>
+                </button>
+            </div>
+
+            <!-- Batch Input Section (Hidden by default) -->
+            <div id="section-batch-controls" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-5">
+                <h2 class="text-base font-bold text-slate-900 border-b pb-3 flex items-center justify-between">
+                    <span><i class="fa-solid fa-folder-open mr-2 text-cyan-600"></i> Batch Analysis</span>
+                </h2>
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer bg-slate-50 hover:bg-cyan-50/30" onclick="document.getElementById('batch-file-input').click()">
+                    <input type="file" id="batch-file-input" multiple class="hidden" accept="image/*" onchange="handleBatchSelect(event)">
+                    <div class="text-slate-400 text-3xl mb-2">
+                        <i class="fa-solid fa-images text-cyan-600"></i>
+                    </div>
+                    <p class="text-sm font-medium text-slate-700">Select Multiple Images</p>
+                    <p id="batch-file-label" class="text-xs text-slate-500 mt-1">0 files selected</p>
+                </div>
+                <button id="btn-batch-process" onclick="processBatch()" class="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg shadow-md transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-play"></i>
+                    <span>Run Batch Crack Detection</span>
+                </button>
+            </div>
+
+            <!-- Algorithm References Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 text-xs text-slate-600 space-y-2">
+                <h4 class="font-bold text-slate-900 flex items-center"><i class="fa-solid fa-book-open text-cyan-600 mr-2"></i> Report Methodology</h4>
+                <p><strong>Refinement / Skeleton:</strong> \( S(A) = \bigcup_{k=1}^K [ (A \ominus kB) - ((A \ominus kB) \circ B) ] \) (Eq 16-18)</p>
+                <p><strong>Normal Distance:</strong> \( d = \sqrt{(x_1 - x_2)^2 + (y_1 - y_2)^2} \) (Eq 19-20)</p>
+                <p><strong>Length & Area:</strong> \( L = \mu l \), \( Q = \mu^2 E \), \( d_{avg} = Q/L \) (Eq 21)</p>
+                <p><strong>Mesh Crack Area:</strong> \( S = \mu^2 (X_2 - X_1)(Y_2 - Y_1) \) (Eq 22)</p>
+            </div>
+        </div>
+
+        <!-- Right Main Dashboard Content (8 cols on lg) -->
+        <div class="lg:col-span-8 space-y-6">
+
+            <!-- Single Image Inspection Results -->
+            <div id="container-single-results" class="space-y-6">
+
+                <!-- Severity & Engineering Assessment Banner -->
+                <div id="banner-assessment" class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Structural Evaluation</span>
+                            <span id="badge-severity" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">Awaiting Analysis</span>
+                        </div>
+                        <h3 id="text-damage-level" class="text-lg font-bold text-slate-900">Upload an image to start crack detection</h3>
+                        <p id="text-structural-warning" class="text-xs text-slate-500 mt-0.5">Parameters will calculate crack length, width, area, and condition score.</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-slate-400 font-medium uppercase">PCI Score</div>
+                        <div id="val-pci" class="text-3xl font-black text-cyan-600">--</div>
+                    </div>
+                </div>
+
+                <!-- KPI Metric Cards Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                    <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Length (L)</div>
+                        <div id="stat-length" class="text-lg font-black text-slate-800 mt-1">--</div>
+                        <div class="text-[10px] text-slate-400">Equation (16)</div>
+                    </div>
+                    <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Max Width (d)</div>
+                        <div id="stat-max-width" class="text-lg font-black text-rose-600 mt-1">--</div>
+                        <div class="text-[10px] text-slate-400">Equation (20)</div>
+                    </div>
+                    <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Avg Width</div>
+                        <div id="stat-avg-width" class="text-lg font-black text-slate-800 mt-1">--</div>
+                        <div class="text-[10px] text-slate-400">Equation (21)</div>
+                    </div>
+                    <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Area (Q)</div>
+                        <div id="stat-area" class="text-lg font-black text-slate-800 mt-1">--</div>
+                        <div class="text-[10px] text-slate-400">Equation (21)</div>
+                    </div>
+                    <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Mesh Area (S)</div>
+                        <div id="stat-mesh-area" class="text-lg font-black text-slate-800 mt-1">--</div>
+                        <div class="text-[10px] text-slate-400">Equation (22)</div>
+                    </div>
+                    <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Crack Rate</div>
+                        <div id="stat-ck" class="text-lg font-black text-slate-800 mt-1">--</div>
+                        <div class="text-[10px] text-slate-400">CK % ratio</div>
+                    </div>
+                </div>
+
+                <!-- Viewport Tabs & Image Display -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <!-- Tab Navigation -->
+                    <div class="flex border-b bg-slate-50 px-4 pt-2 gap-2 text-xs font-semibold">
+                        <button id="tab-overlay" onclick="switchTab('overlay')" class="py-2.5 px-4 border-b-2 border-cyan-600 text-cyan-700 bg-white rounded-t-lg">
+                            <i class="fa-solid fa-ruler-combined mr-1"></i> Quantitative Overlay
+                        </button>
+                        <button id="tab-grid" onclick="switchTab('grid')" class="py-2.5 px-4 border-b-2 border-transparent text-slate-600 hover:text-slate-900">
+                            <i class="fa-solid fa-table-cells mr-1"></i> 6-Stage Diagnostic Grid
+                        </button>
+                        <button id="tab-mask" onclick="switchTab('mask')" class="py-2.5 px-4 border-b-2 border-transparent text-slate-600 hover:text-slate-900">
+                            <i class="fa-solid fa-circle-nodes mr-1"></i> Binary & Skeleton
+                        </button>
+                    </div>
+
+                    <!-- Image Display Box -->
+                    <div class="p-4 bg-slate-950 flex items-center justify-center min-h-[440px] relative">
+                        <div id="spinner" class="hidden absolute inset-0 bg-slate-950/80 z-20 flex flex-col items-center justify-center text-white">
+                            <div class="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                            <p class="text-sm font-semibold tracking-wide text-cyan-400">Executing Multiscale DIP Pipeline...</p>
+                            <p class="text-xs text-slate-400 mt-1">Hessian line filter &bull; Mathematical morphology &bull; Skeleton extraction</p>
+                        </div>
+
+                        <!-- Active Image View -->
+                        <img id="main-image-display" src="" alt="Crack Inspection Display" class="hidden max-h-[580px] w-auto object-contain rounded shadow-lg">
+
+                        <!-- Placeholder -->
+                        <div id="placeholder-box" class="text-center text-slate-600 py-16">
+                            <i class="fa-regular fa-image text-5xl mb-3 text-slate-700"></i>
+                            <p class="text-sm font-medium">No inspection loaded</p>
+                            <p class="text-xs text-slate-500 mt-1">Choose an image from the sidebar to inspect wall/floor cracks</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Crack Components Detailed Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center justify-between">
+                        <span><i class="fa-solid fa-list-check text-cyan-600 mr-2"></i> Individual Crack Branches & Networks</span>
+                        <span id="badge-comp-count" class="text-xs font-normal text-slate-500">0 components detected</span>
+                    </h3>
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-xs text-left">
+                            <thead class="bg-slate-50 text-slate-600 font-semibold uppercase border-b">
+                                <tr>
+                                    <th class="py-2.5 px-3">#</th>
+                                    <th class="py-2.5 px-3">Length L (mm)</th>
+                                    <th class="py-2.5 px-3">Max Width d (mm)</th>
+                                    <th class="py-2.5 px-3">Avg Width (mm)</th>
+                                    <th class="py-2.5 px-3">Area Q (mm&sup2;)</th>
+                                    <th class="py-2.5 px-3">Mesh Area S (mm&sup2;)</th>
+                                    <th class="py-2.5 px-3">Type</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-components-body">
+                                <tr>
+                                    <td colspan="7" class="py-6 text-center text-slate-400 italic">No crack components detected yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch Processing View (Hidden by default) -->
+            <div id="container-batch-results" class="hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-base">Batch Inspection Results</h3>
+                        <p id="batch-status-text" class="text-xs text-slate-500 mt-0.5">Select images and click 'Run Batch Crack Detection'.</p>
+                    </div>
+                    <a id="btn-download-csv" href="/api/download_report_csv" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-csv"></i>
+                        <span>Download CSV Report</span>
+                    </a>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
+                        <table class="w-full text-xs text-left">
+                            <thead class="bg-slate-50 text-slate-600 font-semibold uppercase border-b sticky top-0 z-10">
+                                <tr>
+                                    <th class="py-3 px-3">Thumb</th>
+                                    <th class="py-3 px-3">Filename</th>
+                                    <th class="py-3 px-3">Crack Found?</th>
+                                    <th class="py-3 px-3">Length (mm)</th>
+                                    <th class="py-3 px-3">Max Width (mm)</th>
+                                    <th class="py-3 px-3">Area (mm&sup2;)</th>
+                                    <th class="py-3 px-3">PCI Score</th>
+                                    <th class="py-3 px-3">Condition</th>
+                                </tr>
+                            </thead>
+                            <tbody id="batch-table-body">
+                                <tr>
+                                    <td colspan="8" class="py-8 text-center text-slate-400 italic">No batch executed yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8 text-center text-xs text-slate-500">
+        <p>Wall & Floor Crack Detection Application &bull; Digital Image Processing & Multiscale Feature Analysis &bull; Strict Non-AI Implementation</p>
+    </footer>
+
+    <!-- Frontend Interactive Script -->
+    <script>
+        let currentResultData = null;
+        let activeTab = 'overlay';
+        let currentMode = 'single';
+
+        function switchMode(mode) {
+            currentMode = mode;
+            if (mode === 'single') {
+                document.getElementById('section-single-controls').classList.remove('hidden');
+                document.getElementById('section-batch-controls').classList.add('hidden');
+                document.getElementById('container-single-results').classList.remove('hidden');
+                document.getElementById('container-batch-results').classList.add('hidden');
+
+                document.getElementById('btn-mode-single').className = 'flex-1 py-2 text-sm font-semibold rounded-lg bg-cyan-600 text-white shadow-sm transition';
+                document.getElementById('btn-mode-batch').className = 'flex-1 py-2 text-sm font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition';
+            } else {
+                document.getElementById('section-single-controls').classList.add('hidden');
+                document.getElementById('section-batch-controls').classList.remove('hidden');
+                document.getElementById('container-single-results').classList.add('hidden');
+                document.getElementById('container-batch-results').classList.remove('hidden');
+
+                document.getElementById('btn-mode-batch').className = 'flex-1 py-2 text-sm font-semibold rounded-lg bg-cyan-600 text-white shadow-sm transition';
+                document.getElementById('btn-mode-single').className = 'flex-1 py-2 text-sm font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition';
+            }
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('selected-file-label').innerText = file.name;
+            }
+        }
+
+        function handleBatchSelect(event) {
+            const files = event.target.files;
+            document.getElementById('batch-file-label').innerText = `${files.length} images selected`;
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            ['overlay', 'grid', 'mask'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tab) {
+                    btn.className = 'py-2.5 px-4 border-b-2 border-cyan-600 text-cyan-700 bg-white rounded-t-lg';
+                } else {
+                    btn.className = 'py-2.5 px-4 border-b-2 border-transparent text-slate-600 hover:text-slate-900';
+                }
+            });
+
+            if (!currentResultData) return;
+
+            const imgEl = document.getElementById('main-image-display');
+            if (tab === 'overlay') {
+                imgEl.src = currentResultData.images.overlay;
+            } else if (tab === 'grid') {
+                imgEl.src = currentResultData.images.comparison_grid;
+            } else if (tab === 'mask') {
+                imgEl.src = currentResultData.images.skeleton;
+            }
+        }
+
+        async function processImage() {
+            const fileInput = document.getElementById('file-input');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Please select an image file first.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', fileInput.files[0]);
+            formData.append('mu', document.getElementById('input-mu').value);
+            formData.append('otsu_factor', document.getElementById('input-otsu').value);
+            formData.append('min_crack_area', document.getElementById('input-min-area').value);
+            formData.append('threshold_mode', document.getElementById('select-thresh-mode').value);
+            formData.append('draw_normals', document.getElementById('check-normals').checked);
+            formData.append('draw_bboxes', document.getElementById('check-bboxes').checked);
+
+            document.getElementById('spinner').classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/detect', {
+                    method: 'POST',
+                    body: formData
+                });
+                const res = await response.json();
+                document.getElementById('spinner').classList.add('hidden');
+
+                if (!res.success) {
+                    alert('Detection Error: ' + res.error);
+                    return;
+                }
+
+                currentResultData = res.data;
+                displayResults(res.data);
+
+            } catch (err) {
+                document.getElementById('spinner').classList.add('hidden');
+                alert('Request failed: ' + err.message);
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('placeholder-box').classList.add('hidden');
+            const imgEl = document.getElementById('main-image-display');
+            imgEl.classList.remove('hidden');
+
+            // Switch to active tab view
+            switchTab(activeTab);
+
+            // Update Metric Cards
+            const m = data.crack_measurements;
+            const cond = data.condition_assessment;
+
+            document.getElementById('stat-length').innerText = m.skeleton_length_L_mm.toFixed(1) + ' mm';
+            document.getElementById('stat-max-width').innerText = m.max_width_dmax_mm.toFixed(2) + ' mm';
+            document.getElementById('stat-avg-width').innerText = m.avg_width_davg_mm.toFixed(2) + ' mm';
+            document.getElementById('stat-area').innerText = m.crack_area_Q_mm2.toFixed(1) + ' mm²';
+            document.getElementById('stat-mesh-area').innerText = data.network_crack_mesh.mesh_bounding_area_S_mm2.toFixed(1) + ' mm²';
+            document.getElementById('stat-ck').innerText = cond.crack_rate_CK_percent.toFixed(3) + '%';
+            document.getElementById('val-pci').innerText = cond.pavement_condition_index_PCI.toFixed(0);
+
+            // Update Assessment Banner
+            document.getElementById('text-damage-level').innerText = `Condition: ${cond.damage_level} (${cond.severity_category})`;
+            document.getElementById('text-structural-warning').innerText = cond.structural_risk_warning;
+
+            const badgeSev = document.getElementById('badge-severity');
+            badgeSev.innerText = cond.severity_category;
+            if (m.max_width_dmax_mm >= 0.5) {
+                badgeSev.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700';
+            } else if (m.max_width_dmax_mm >= 0.3) {
+                badgeSev.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700';
+            } else if (m.max_width_dmax_mm >= 0.1) {
+                badgeSev.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800';
+            } else {
+                badgeSev.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700';
+            }
+
+            // Update Component Breakdown Table
+            const tbody = document.getElementById('table-components-body');
+            document.getElementById('badge-comp-count').innerText = `${data.components.length} components detected`;
+
+            if (data.components.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400 italic">No significant cracks detected on surface.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.components.map(c => `
+                <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="py-2.5 px-3 font-semibold text-cyan-700">#${c.id}</td>
+                    <td class="py-2.5 px-3 font-medium">${c.length_mm.toFixed(1)}</td>
+                    <td class="py-2.5 px-3 font-bold ${c.max_width_mm >= 0.5 ? 'text-rose-600' : 'text-slate-700'}">${c.max_width_mm.toFixed(2)}</td>
+                    <td class="py-2.5 px-3">${c.avg_width_mm.toFixed(2)}</td>
+                    <td class="py-2.5 px-3">${c.area_mm2.toFixed(1)}</td>
+                    <td class="py-2.5 px-3">${c.mesh_area_mm2.toFixed(1)}</td>
+                    <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-semibold ${c.is_network ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700'}">${c.is_network ? 'Network / Mesh' : 'Linear'}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        async function processBatch() {
+            const batchInput = document.getElementById('batch-file-input');
+            if (!batchInput.files || batchInput.files.length === 0) {
+                alert('Please select files for batch analysis first.');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let i = 0; i < batchInput.files.length; i++) {
+                formData.append('images', batchInput.files[i]);
+            }
+            formData.append('mu', document.getElementById('input-mu').value);
+            formData.append('otsu_factor', document.getElementById('input-otsu').value);
+            formData.append('min_crack_area', document.getElementById('input-min-area').value);
+
+            document.getElementById('batch-status-text').innerText = `Processing ${batchInput.files.length} images using multiscale DIP...`;
+            const tbody = document.getElementById('batch-table-body');
+            tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-500"><div class="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>Processing batch...</td></tr>`;
+
+            try {
+                const response = await fetch('/api/batch_detect', {
+                    method: 'POST',
+                    body: formData
+                });
+                const res = await response.json();
+
+                if (!res.success) {
+                    alert('Batch Error: ' + res.error);
+                    return;
+                }
+
+                document.getElementById('batch-status-text').innerText = `Successfully processed ${res.count} images.`;
+                document.getElementById('btn-download-csv').classList.remove('hidden');
+
+                tbody.innerHTML = res.results.map(r => `
+                    <tr class="border-b hover:bg-slate-50 transition">
+                        <td class="py-2 px-3"><img src="${r.thumbnail}" class="w-16 h-12 object-cover rounded border"></td>
+                        <td class="py-2 px-3 font-semibold text-slate-800">${r.image_name}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-0.5 rounded text-[11px] font-bold ${r.crack_measurements.skeleton_length_L_mm > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">${r.crack_measurements.skeleton_length_L_mm > 0 ? 'YES' : 'CLEAN'}</span></td>
+                        <td class="py-2 px-3">${r.crack_measurements.skeleton_length_L_mm.toFixed(1)}</td>
+                        <td class="py-2 px-3 font-bold ${r.crack_measurements.max_width_dmax_mm >= 0.5 ? 'text-rose-600' : 'text-slate-800'}">${r.crack_measurements.max_width_dmax_mm.toFixed(2)}</td>
+                        <td class="py-2 px-3">${r.crack_measurements.crack_area_Q_mm2.toFixed(1)}</td>
+                        <td class="py-2 px-3 font-bold text-cyan-700">${r.condition_assessment.pavement_condition_index_PCI.toFixed(0)}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700">${r.condition_assessment.damage_level}</span></td>
+                    </tr>
+                `).join('');
+
+            } catch (err) {
+                alert('Batch processing failed: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>
